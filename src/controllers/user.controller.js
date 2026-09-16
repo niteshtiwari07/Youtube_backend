@@ -372,11 +372,37 @@ const getUserChannelProfile = asyncHandler(async(req,res) => {
                     $size: "$subscribers"
                 },
                 ChannelSubscribedToCount: {
-                    $size:"$subsccribedTo"
+                    $size:"$subscribedTo"
+                },
+                isSubscribed:{
+                    $cond: {
+                        if: {$in: [req.user?._id, "subscribers.subscriber"]},
+                        then: true,
+                        else: false,
+                    }
                 }
+            }
+        },
+        {
+            $project: {
+                fulname: 1,
+                username: 1,
+                subscriberCount: 1,
+                ChannelSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1  
             }
         }
     ])
+    if(!channel?.length){
+        throw new ApiError(404, "channel does not exists")
+    }
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, channel[0], "User channel fetched sucessfully"))
 })
 
 export {
