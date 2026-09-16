@@ -3,9 +3,10 @@ import {ApiError} from "../utils/ApiError.js";
 import {User} from "../models/user.model.js";
 import {uploadOnCloudinary} from "../utils/cloudinary.js";
 import {ApiResponse} from "../utils/apiResponse.js";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
-const generateAccessAndRefereshTokens = async(userId) =>{
+const generateAccessAndRefreshTokens = async(userId) =>{
     try {
         const user = await User.findById(userId)
         const accessToken = user.generateAccessToken()
@@ -18,7 +19,7 @@ const generateAccessAndRefereshTokens = async(userId) =>{
 
 
     } catch (error) {
-        throw new ApiError(500, "Something went wrong while generating referesh and access token")
+        throw new ApiError(500, "Something went wrong while generating refresh and access token")
     }
 }
 
@@ -120,7 +121,7 @@ const loginUser = asyncHandler(async (req, res) =>{
     throw new ApiError(401, "Invalid user credentials")
     }
 
-   const {accessToken, refreshToken} = await generateAccessAndRefereshTokens(user._id)
+   const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id)
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
@@ -199,7 +200,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             secure: true
         }
     
-        const {accessToken, newRefreshToken} = await generateAccessAndRefereshTokens(user._id)
+        const {accessToken, newRefreshToken} = await generateAccessAndRefreshTokens(user._id)
     
         return res
         .status(200)
@@ -315,7 +316,7 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
     if (!coverImage.url) {
-        throw new ApiError(400, "Error while uploading on avatar")
+        throw new ApiError(400, "Error while uploading cover image")
         
     }
 
@@ -376,7 +377,7 @@ const getUserChannelProfile = asyncHandler(async(req,res) => {
                 },
                 isSubscribed:{
                     $cond: {
-                        if: {$in: [req.user?._id, "subscribers.subscriber"]},
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
                         then: true,
                         else: false,
                     }
@@ -385,9 +386,9 @@ const getUserChannelProfile = asyncHandler(async(req,res) => {
         },
         {
             $project: {
-                fulname: 1,
+                fullName: 1,
                 username: 1,
-                subscriberCount: 1,
+                subscribersCount: 1,
                 ChannelSubscribedToCount: 1,
                 isSubscribed: 1,
                 avatar: 1,
@@ -402,20 +403,20 @@ const getUserChannelProfile = asyncHandler(async(req,res) => {
 
     return res
     .status(200)
-    .json(new ApiResponse(200, channel[0], "User channel fetched sucessfully"))
+    .json(new ApiResponse(200, channel[0], "User channel fetched successfully"))
 })
 
 const getWatchHistory = asyncHandler(async(req,res) => {
     const user = await User.aggregate([
         {
             $match: {
-                _id: new mongoose.Types.OnjectId(req.user._id)
+                _id: new mongoose.Types.ObjectId(req.user._id)
             }
         },
         {
             $lookup: {
                 from: "videos",
-                localFields: "watchHistory",
+                localField: "watchHistory",
                 foreignField: "_id",
                 as: "watchHistory",
                 pipeline:[
@@ -428,7 +429,7 @@ const getWatchHistory = asyncHandler(async(req,res) => {
                             pipeline:[
                                 {
                                     $project:{
-                                        fullname: 1,
+                                        fullName: 1,
                                         username: 1,
                                         avatar: 1
                                     }
@@ -438,7 +439,7 @@ const getWatchHistory = asyncHandler(async(req,res) => {
                     },{
                         $addFields:{
                             owner: {
-                                $first: $owner
+                                $first: "$owner"
                             }
                         }
                     }
@@ -452,7 +453,7 @@ const getWatchHistory = asyncHandler(async(req,res) => {
     .json(
         new ApiResponse(
             200,
-            user[0].getWatchHistory,
+            user[0].WatchHistory,
             "watch history fetched successfully"
         )
     )
